@@ -126,7 +126,48 @@ if file_sna is not None:
         # Memasukkan Edge ke PyVis
         for edge in G.edges():
             net.add_edge(str(edge[0]), str(edge[1]), color='#888888', width=1.5)
+# --- MEMBUANG GRAF MENGGUNAKAN PYVIS ---
+        net = Network(height='650px', width='100%', directed=True, bgcolor='#ffffff', font_color='black')
+        
+        # Mengatur konfigurasi dasar
+        net.repulsion(node_distance=150, central_gravity=0.3, spring_length=150)
 
+        # Memasukkan Node ke PyVis
+        for node in G.nodes():
+            deg = degree_cent.get(node, 0)
+            ukuran_node = int(deg * 50 + 20)
+            
+            klaster_node = mapping_dict.get(node, "Simpul Lainnya")
+            warna_node = klaster_ke_warna.get(klaster_node, '#7f7f7f')
+            
+            tooltip_text = f"Instansi: {node}\\nKlaster: {klaster_node}\\nDegree Centrality: {deg:.2f}"
+            
+            net.add_node(
+                str(node), 
+                label=str(node), 
+                title=tooltip_text, 
+                size=ukuran_node, 
+                color=warna_node,
+                fixed=False # Memastikan node tetap bisa digeser
+            )
+
+        # Memasukkan Edge ke PyVis
+        for edge in G.edges():
+            net.add_edge(str(edge[0]), str(edge[1]), color='#888888', width=1.5)
+
+        # ==========================================
+        # MATIKAN FISIKA AGAR TIDAK MEMANTUL SEPERTI KARET
+        # ==========================================
+        net.toggle_physics(False)
+        # ==========================================
+
+        # Menyimpan dan merender HTML interaktif ke Streamlit
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tmp:
+            net.save_graph(tmp.name)
+            with open(tmp.name, 'r', encoding='utf-8') as f:
+                html_data = f.read()
+                
+        components.html(html_data, height=680)
         # Menyimpan dan merender HTML interaktif ke Streamlit
         with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tmp:
             net.save_graph(tmp.name)
