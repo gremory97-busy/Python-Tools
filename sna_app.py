@@ -8,21 +8,25 @@ import tempfile
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="Modul SNA Interaktif", layout="wide", initial_sidebar_state="collapsed")
 
-# --- CSS KHUSUS UNTUK MODE CETAK A4 ---
+# --- CSS KHUSUS UNTUK MODE CETAK A4 & RESPONSIVE CONTAINER ---
 st.markdown("""
 <style>
 @media print {
     @page { size: A4 portrait; margin: 15mm; }
-    /* Menyembunyikan elemen bawaan web saat dicetak */
     header[data-testid="stHeader"] {display: none !important;}
     footer {display: none !important;}
     [data-testid="stSidebar"] {display: none !important;}
     .stButton {display: none !important;}
-    /* Memaksa elemen memanjang ke bawah agar tidak terpotong */
     .st-emotion-cache-16txtl3 {padding: 0 !important;}
 }
-/* Mempercantik kotak sosiogram agar terlihat persegi presisi */
-.graf-container { border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white; }
+/* Memastikan kotak sosiogram memenuhi 100% ruang yang tersedia */
+.graf-container { 
+    border: 2px solid #e0e0e0; 
+    border-radius: 8px; 
+    padding: 10px; 
+    background-color: white;
+    width: 100%;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -153,15 +157,16 @@ if 'data_ready' in st.session_state:
     # 2. PENGATURAN LAYOUT BERDASARKAN MODE
     if not mode_cetak:
         st.divider()
-        col_graf, col_info = st.columns([2.5, 1.5], gap="large") # Dashboard Berdampingan
+        # Mengubah rasio agar area grafik (kiri) jauh lebih lebar mengambil ruang kosong
+        col_graf, col_info = st.columns([2.8, 1.2], gap="large") 
     else:
-        col_graf, col_info = st.columns([1, 0.01]) # Mode Cetak (Memanjang ke bawah)
+        col_graf, col_info = st.columns([1, 0.01])
 
-    # --- RENDER SOSIOGRAM (PERSEGI PRESISI) ---
+    # --- RENDER SOSIOGRAM (RESPONSIVE 100%) ---
     with col_graf:
         st.markdown(f"### Sosiogram {'' if mode_cetak else '(Interaktif)'}")
         if not mode_cetak:
-            st.caption("✨ Tahan & Geser titik untuk menatanya. Klik titik untuk melihat koneksi.")
+            st.caption("✨ Tahan & Geser titik untuk menatanya. Klik titik untuk melihat koneksi menyala.")
             
         if lay == "Spring (Alami/Pusat)":
             pos = nx.spring_layout(G, seed=42, k=spc)
@@ -172,8 +177,8 @@ if 'data_ready' in st.session_state:
         else:
             pos = nx.shell_layout(G)
 
-        # PyVis Setup dengan Ukuran Persegi Absolut (750x750)
-        net = Network(height='750px', width='750px', directed=True, bgcolor='#ffffff', font_color='black')
+        # PyVis Setup dengan Lebar 100% (Responsive)
+        net = Network(height='750px', width='100%', directed=True, bgcolor='#ffffff', font_color='black')
         
         for node in G.nodes():
             deg = degree_cent.get(node, 0)
@@ -181,12 +186,12 @@ if 'data_ready' in st.session_state:
             klaster_node = mapping_dict.get(node, "Simpul Lainnya")
             warna_node = klaster_ke_warna.get(klaster_node, '#7f7f7f')
             
-            # Teks langsung muncul di bawah bola
             label_teks = f"{node}\n(Deg: {deg:.2f})"
             tooltip_text = f"Instansi: {node}\nKlaster: {klaster_node}\nDegree Centrality: {deg:.2f}"
             
-            x_coord = float(pos[node][0]) * 500
-            y_coord = float(pos[node][1]) * 500
+            # Rentang koordinat diperbesar agar menyebar ideal di kanvas lebar
+            x_coord = float(pos[node][0]) * 700
+            y_coord = float(pos[node][1]) * 700
             
             net.add_node(str(node), label=label_teks, title=tooltip_text, size=ukuran_node, color=warna_node, x=x_coord, y=y_coord)
 
@@ -208,17 +213,17 @@ if 'data_ready' in st.session_state:
             with open(tmp.name, 'r', encoding='utf-8') as f:
                 html_data = f.read()
         
-        # Bungkus HTML di dalam Div agar tampilannya konsisten persegi
-        st.markdown('<div class="graf-container" style="display: flex; justify-content: center;">', unsafe_allow_html=True)
-        components.html(html_data, height=760, width=760)
+        # Bungkus HTML tanpa paksaan ukuran absolut
+        st.markdown('<div class="graf-container">', unsafe_allow_html=True)
+        # Menghapus argumen width agar menyesuaikan lebar layar secara otomatis
+        components.html(html_data, height=760)
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- RENDER PANEL INFORMASI & LEGENDA ---
-    # Jika mode cetak, render di bawah grafik. Jika tidak, render di sebelah kanan.
     info_container = st.container() if mode_cetak else col_info
 
     with info_container:
-        if mode_cetak: st.markdown("<br>", unsafe_allow_html=True) # Spasi ekstra untuk cetak
+        if mode_cetak: st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### Keterangan Klaster")
         for klaster in unik_klaster:
             warna_hex = klaster_ke_warna[klaster]
@@ -249,9 +254,7 @@ if 'data_ready' in st.session_state:
                 if not G.has_edge(u, v) and not G.has_edge(v, u):
                     celah_krusial.append((u, v, klaster_u, klaster_v))
 
-    # TAMPILAN BERDASARKAN MODE
     if not mode_cetak:
-        # Gunakan Tab interaktif untuk menghemat ruang di layar web
         tab1, tab2, tab3 = st.tabs(["💡 Sentralitas", "🌉 Celah & Ego Sektoral", "⚠️ Rekomendasi"])
         
         with tab1:
@@ -273,13 +276,12 @@ if 'data_ready' in st.session_state:
             st.markdown("1. **Desentralisasi Akses Data:** Ketergantungan pada *Hub Sentral* harus dikurangi dengan *Web API* bersama.\n2. **Pembangunan Jembatan Horizontal:** Menutup celah krusial antar instansi teknis.")
     
     else:
-        # Mode Cetak: Semua informasi dibongkar memanjang ke bawah (tanpa Tab tersembunyi)
         st.markdown("#### A. Evaluasi Sentralitas")
         st.write(f"1. **Dominasi Sentralitas:** **{aktor_utama_degree}** memegang simpul paling dominan dalam lalu lintas pertukaran data.")
         st.write(f"2. **Peran Mediasi:** **{aktor_utama_between}** bertindak sebagai jembatan utama yang mengontrol arus informasi antar klaster.")
         
         st.markdown("#### B. Analisis Celah & Ego Sektoral")
-        st.write(f"Kepadatan jaringan **{kepadatan:.2f} ({(kepadatan*100):.1f}%)** menunjukkan struktur jaringan yang jarang (*sparse*), mengindikasikan ego sektoral.")
+        st.write(f"Kepadatan jaringan **{kepadatan:.2f} ({(kepadatan*100):.1f}%)** menunjukkan struktur jaringan yang jarang (*sparse*).")
         if celah_krusial:
             st.write(f"**Ditemukan {len(celah_krusial)} Celah Hubungan Krusial (Missing Links Lintas Sektor):**")
             for (u, v, ku, kv) in celah_krusial:
@@ -290,4 +292,4 @@ if 'data_ready' in st.session_state:
         st.markdown("#### C. Identifikasi Simpul & Rekomendasi")
         if isolates:
             st.write(f"**Simpul Terisolasi:** {', '.join(isolates)}.")
-        st.markdown("1. **Desentralisasi Akses Data:** Ketergantungan pada *Hub Sentral* harus dikurangi dengan *Web API* bersama.\n2. **Pembangunan Jembatan Horizontal:** Menutup celah krusial antar instansi teknis agar koordinasi spasial lebih efektif.")
+        st.markdown("1. **Desentralisasi Akses Data:** Ketergantungan pada *Hub Sentral* harus dikurangi dengan *Web API* bersama.\n2. **Pembangunan Jembatan Horizontal:** Menutup celah krusial antar instansi teknis.")
