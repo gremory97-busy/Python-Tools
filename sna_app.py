@@ -19,7 +19,6 @@ st.markdown("""
     .stButton {display: none !important;}
     .st-emotion-cache-16txtl3 {padding: 0 !important;}
 }
-/* Memastikan kotak sosiogram memenuhi 100% ruang yang tersedia */
 .graf-container { 
     border: 2px solid #e0e0e0; 
     border-radius: 8px; 
@@ -47,7 +46,7 @@ if not mode_cetak:
             df_awal = pd.read_csv(file_sna)
         st.success(f"File '{file_sna.name}' berhasil dimuat!")
 
-        st.write("**2. Tabel Matriks Utama**")
+        st.write("**2. Tabel Matriks Utama (Bisa diedit langsung)**")
         df_sna = st.data_editor(df_awal, num_rows="dynamic", use_container_width=True)
         
         kolom_semua = df_sna.columns.tolist()
@@ -101,7 +100,7 @@ if not mode_cetak:
                 st.error("🚨 Matriks tidak simetris!")
                 st.stop()
             
-            # SIMPAN KE SESSION STATE UNTUK CETAK
+            # SIMPAN KE SESSION STATE UNTUK RENDER
             st.session_state['data_ready'] = True
             st.session_state['G'] = nx.from_pandas_adjacency(df_biner, create_using=nx.DiGraph)
             st.session_state['G'].remove_edges_from(nx.selfloop_edges(st.session_state['G']))
@@ -112,7 +111,7 @@ if not mode_cetak:
 
 else:
     if 'data_ready' not in st.session_state:
-        st.warning("⚠️ Silakan matikan Mode Cetak dan unggah/proses data terlebih dahulu.")
+        st.warning("⚠️ Silakan matikan Mode Cetak, lalu unggah dan proses data terlebih dahulu.")
         st.stop()
     st.markdown("<h2 style='text-align: center;'>Laporan Analisis Jaringan Kolaborasi Geospasial</h2>", unsafe_allow_html=True)
     st.markdown("<hr>", unsafe_allow_html=True)
@@ -142,7 +141,6 @@ if 'data_ready' in st.session_state:
     palet_warna = ['#d62728', '#1f77b4', '#ff7f0e', '#7f7f7f', '#2ca02c', '#9467bd', '#8c564b', '#e377c2']
     klaster_ke_warna = {klaster: palet_warna[i % len(palet_warna)] for i, klaster in enumerate(unik_klaster)}
 
-    # Membuat Tabel DataFrame Ringkasan Node
     tabel_metrik = []
     for node in G.nodes():
         tabel_metrik.append({
@@ -157,16 +155,15 @@ if 'data_ready' in st.session_state:
     # 2. PENGATURAN LAYOUT BERDASARKAN MODE
     if not mode_cetak:
         st.divider()
-        # Mengubah rasio agar area grafik (kiri) jauh lebih lebar mengambil ruang kosong
         col_graf, col_info = st.columns([2.8, 1.2], gap="large") 
     else:
         col_graf, col_info = st.columns([1, 0.01])
 
-    # --- RENDER SOSIOGRAM (RESPONSIVE 100%) ---
+    # --- RENDER SOSIOGRAM (RESPONSIVE + HIGH RES EXPORT) ---
     with col_graf:
         st.markdown(f"### Sosiogram {'' if mode_cetak else '(Interaktif)'}")
         if not mode_cetak:
-            st.caption("✨ Tahan & Geser titik untuk menatanya. Klik titik untuk melihat koneksi menyala.")
+            st.caption("✨ Tahan & Geser titik untuk menatanya. Gunakan tombol hijau di kanan atas kanvas untuk mengunduh gambar resolusi tinggi.")
             
         if lay == "Spring (Alami/Pusat)":
             pos = nx.spring_layout(G, seed=42, k=spc)
@@ -177,7 +174,6 @@ if 'data_ready' in st.session_state:
         else:
             pos = nx.shell_layout(G)
 
-        # PyVis Setup dengan Lebar 100% (Responsive)
         net = Network(height='750px', width='100%', directed=True, bgcolor='#ffffff', font_color='black')
         
         for node in G.nodes():
@@ -189,7 +185,6 @@ if 'data_ready' in st.session_state:
             label_teks = f"{node}\n(Deg: {deg:.2f})"
             tooltip_text = f"Instansi: {node}\nKlaster: {klaster_node}\nDegree Centrality: {deg:.2f}"
             
-            # Rentang koordinat diperbesar agar menyebar ideal di kanvas lebar
             x_coord = float(pos[node][0]) * 700
             y_coord = float(pos[node][1]) * 700
             
@@ -198,6 +193,7 @@ if 'data_ready' in st.session_state:
         for edge in G.edges():
             net.add_edge(str(edge[0]), str(edge[1]), color='#d3d3d3', width=1.5)
 
+        # Injeksi JS PyVis: Matikan fisika karet, nyalakan highlight garis (Glowing Edges) saat diklik
         custom_options = """
         var options = {
           "nodes": { "borderWidth": 1.5, "borderWidthSelected": 4, "font": { "size": 15, "face": "arial", "multi": true } },
@@ -213,10 +209,32 @@ if 'data_ready' in st.session_state:
             with open(tmp.name, 'r', encoding='utf-8') as f:
                 html_data = f.read()
         
-        # Bungkus HTML tanpa paksaan ukuran absolut
-        st.markdown('<div class="graf-container">', unsafe_allow_html=True)
-        # Menghapus argumen width agar menyesuaikan lebar layar secara otomatis
-        components.html(html_data, height=760)
+        # Injeksi HTML/JS Tambahan untuk Fitur Download Gambar Resolusi Tinggi
+        export_script = """
+        <script>
+        function downloadHDImage() {
+            var canvas = document.querySelector('canvas');
+            if (canvas) {
+                var image = canvas.toDataURL("image/png", 1.0);
+                var link = document.createElement('a');
+                link.download = 'Sosiogram_HD_Analisis_SNA.png';
+                link.href = image;
+                link.click();
+            } else {
+                alert('Menunggu kanvas selesai dimuat. Coba beberapa detik lagi.');
+            }
+        }
+        </script>
+        <div style="position: absolute; top: 15px; right: 25px; z-index: 9999;">
+            <button onclick="downloadHDImage()" style="background-color: #2e7d32; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                📸 Simpan Gambar HD (PNG)
+            </button>
+        </div>
+        """
+        html_data_with_export = html_data.replace("<body>", "<body>" + export_script)
+        
+        st.markdown('<div class="graf-container" style="position: relative;">', unsafe_allow_html=True)
+        components.html(html_data_with_export, height=760)
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- RENDER PANEL INFORMASI & LEGENDA ---
@@ -243,7 +261,6 @@ if 'data_ready' in st.session_state:
     st.divider()
     st.markdown("### 📑 Laporan Analisis Deskriptif & Celah Hubungan Krusial")
 
-    # Logika Celah Struktural
     celah_krusial = []
     nodes_list_eval = list(G.nodes())
     for i in range(len(nodes_list_eval)):
@@ -258,8 +275,8 @@ if 'data_ready' in st.session_state:
         tab1, tab2, tab3 = st.tabs(["💡 Sentralitas", "🌉 Celah & Ego Sektoral", "⚠️ Rekomendasi"])
         
         with tab1:
-            st.write(f"**Dominasi Sentralitas:** **{aktor_utama_degree}** memegang simpul paling dominan dalam lalu lintas data.")
-            st.write(f"**Peran Mediasi:** **{aktor_utama_between}** bertindak sebagai penjaga gerbang (*gatekeeper*) antar klaster.")
+            st.write(f"**Dominasi Sentralitas:** **{aktor_utama_degree}** memegang simpul paling dominan dalam lalu lintas pertukaran data geospasial.")
+            st.write(f"**Peran Mediasi:** **{aktor_utama_between}** bertindak sebagai penjaga gerbang (*gatekeeper*) utama yang mengontrol arus antar klaster.")
 
         with tab2:
             st.write(f"Kepadatan jaringan **{kepadatan:.2f} ({(kepadatan*100):.1f}%)** menunjukkan struktur jaringan yang jarang (*sparse*).")
@@ -273,7 +290,7 @@ if 'data_ready' in st.session_state:
         with tab3:
             if isolates:
                 st.error(f"🚨 **Simpul Terisolasi:** {', '.join(isolates)} tidak memiliki koneksi aktif.")
-            st.markdown("1. **Desentralisasi Akses Data:** Ketergantungan pada *Hub Sentral* harus dikurangi dengan *Web API* bersama.\n2. **Pembangunan Jembatan Horizontal:** Menutup celah krusial antar instansi teknis.")
+            st.markdown("1. **Desentralisasi Akses Data:** Ketergantungan pada *Hub Sentral* harus dikurangi dengan pemanfaatan *Web API* secara horizontal.\n2. **Pembangunan Jembatan Sektoral:** Menutup celah krusial antar instansi teknis (misal: klaster ekonomi ke klaster infrastruktur).")
     
     else:
         st.markdown("#### A. Evaluasi Sentralitas")
@@ -292,4 +309,4 @@ if 'data_ready' in st.session_state:
         st.markdown("#### C. Identifikasi Simpul & Rekomendasi")
         if isolates:
             st.write(f"**Simpul Terisolasi:** {', '.join(isolates)}.")
-        st.markdown("1. **Desentralisasi Akses Data:** Ketergantungan pada *Hub Sentral* harus dikurangi dengan *Web API* bersama.\n2. **Pembangunan Jembatan Horizontal:** Menutup celah krusial antar instansi teknis.")
+        st.markdown("1. **Desentralisasi Akses Data:** Ketergantungan pada *Hub Sentral* harus dikurangi dengan pemanfaatan *Web API* secara horizontal.\n2. **Pembangunan Jembatan Sektoral:** Menutup celah krusial antar instansi teknis.")
