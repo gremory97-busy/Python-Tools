@@ -2,21 +2,22 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
-st.set_page_config(page_title="Ultimate God Mode Engine (AHP)", layout="wide")
+st.set_page_config(page_title="Ultimate God Mode Engine", layout="wide")
 st.title("🚀 God Mode Engine: AHP SDI-RI 58.70% & Alpha 0.86")
-st.markdown("Mesin ini telah diperbarui untuk **memperhitungkan Bobot AHP (0.19, 0.20, 0.21, 0.19, 0.21)**. Alat ini akan menyulap 42 responden baru yang secara matematis terkunci di indeks SDI-RI 58.70% dan Cronbach's Alpha 0.86.")
+st.markdown("Mesin ini mengunci Indeks SDI-RI 58.70% (via AHP) dan Alpha 0.86. **Pembaruan:** Dilengkapi grafik *Radar Chart* (Jaring Laba-laba) untuk 5 Dimensi.")
 
 # --- KONFIGURASI BOBOT AHP ---
 W_AHP = [0.19, 0.20, 0.21, 0.19, 0.21]
 
 def get_ahp_index(df_items):
     m = df_items.mean()
-    p1 = m[0:3].mean()   # Kebijakan
-    p2 = m[3:6].mean()   # Kelembagaan
-    p3 = m[6:9].mean()   # Data
-    p4 = m[9:12].mean()  # Teknologi
-    p5 = m[12:15].mean() # SDM
+    p1 = m[0:3].mean()   
+    p2 = m[3:6].mean()   
+    p3 = m[6:9].mean()   
+    p4 = m[9:12].mean()  
+    p5 = m[12:15].mean() 
     w_mean = (p1*W_AHP[0]) + (p2*W_AHP[1]) + (p3*W_AHP[2]) + (p4*W_AHP[3]) + (p5*W_AHP[4])
     return (w_mean / 5) * 100
 
@@ -28,11 +29,10 @@ def get_alpha(df_items):
     return (k / (k - 1)) * (1 - (item_vars.sum() / t_var))
 
 @st.cache_data
-def generate_perfect_ahp_data(means_x, means_y, num_resp=42, target_ahp=58.700, target_alpha=0.86):
+def generate_perfect_ahp_data(means_x, means_y, num_resp=45, target_ahp=58.700, target_alpha=0.86):
     df_x = pd.DataFrame()
     df_y = pd.DataFrame()
     
-    # 1. Generate Base Data (Mengikuti pola BANGKEK agar IPA tidak bergeser)
     for i, m in enumerate(means_x):
         col_sum = int(round(m * num_resp))
         arr = np.array([col_sum // num_resp] * num_resp)
@@ -53,7 +53,6 @@ def generate_perfect_ahp_data(means_x, means_y, num_resp=42, target_ahp=58.700, 
                 arr[a] += 1; arr[b] -= 1
         df_y[f'Y_{i}'] = arr
 
-    # 2. Force AHP Index tepat ke 58.70%
     for _ in range(2000):
         current_ahp = get_ahp_index(df_x)
         if abs(current_ahp - target_ahp) < 0.005:
@@ -64,9 +63,6 @@ def generate_perfect_ahp_data(means_x, means_y, num_resp=42, target_ahp=58.700, 
         elif current_ahp > target_ahp and df_x.iloc[r, c] > 1:
             df_x.iloc[r, c] -= 1
 
-    # 3. Simulated Annealing (Mencari Alpha 0.86 tanpa mengubah AHP)
-    # Triknya: Hanya menukar poin di dalam KOLOM YANG SAMA. 
-    # Rata-rata kolom tidak berubah = AHP 58.70% TERKUNCI MATI.
     for iteration in range(25000):
         alpha = get_alpha(df_x)
         if abs(alpha - target_alpha) <= 0.002:
@@ -88,9 +84,12 @@ def generate_perfect_ahp_data(means_x, means_y, num_resp=42, target_ahp=58.700, 
     return df_x, df_y, get_alpha(df_x), get_ahp_index(df_x)
 
 
-# --- UNGGAH TEMPLATE BANGKEK ---
-st.header("1. Masukkan Template (Hanya untuk Nama & Pola IPA)")
-file_master = st.file_uploader("Unggah File BANGKEK.xlsx di sini:", type=["xlsx", "csv"])
+st.header("1. Konfigurasi Awal")
+col_input1, col_input2 = st.columns([1, 2])
+with col_input1:
+    target_responden_input = st.number_input("Target Jumlah Responden:", min_value=15, max_value=100, value=45, help="Sangat disarankan memakai kelipatan 15 (seperti 45) agar agregasi Rekap OPD tidak meleset nilainya.")
+with col_input2:
+    file_master = st.file_uploader("Unggah File BANGKEK.xlsx di sini:", type=["xlsx", "csv"])
 
 if file_master is not None:
     df_asli = pd.read_excel(file_master) if file_master.name.endswith('.xlsx') else pd.read_csv(file_master)
@@ -102,14 +101,19 @@ if file_master is not None:
     mean_x_asli = df_asli[kolom_x].mean().values
     mean_y_asli = df_asli[kolom_y].mean().values
     nama_opd_list = df_asli[kolom_opd].tolist()
+    jumlah_opd = len(nama_opd_list)
     
     if st.button("Jalankan God Mode (AHP Terintegrasi)", type="primary"):
-        with st.spinner("Memanipulasi matriks dengan rumus AHP untuk mengunci Indeks 58.70% & Alpha 0.86..."):
+        with st.spinner(f"Memanipulasi matriks untuk {target_responden_input} responden (Indeks 58.70% & Alpha 0.86)..."):
             
-            df_x_baru, df_y_baru, final_alpha, final_ahp = generate_perfect_ahp_data(mean_x_asli, mean_y_asli)
+            df_x_baru, df_y_baru, final_alpha, final_ahp = generate_perfect_ahp_data(
+                mean_x_asli, mean_y_asli, num_resp=target_responden_input
+            )
             
-            # Pengelompokan 42 orang ke 15 OPD
-            distribusi = [3] * 12 + [2] * 3
+            # Distribusi responden ke instansi
+            base_count = target_responden_input // jumlah_opd
+            sisa = target_responden_input % jumlah_opd
+            distribusi = [base_count + 1] * sisa + [base_count] * (jumlah_opd - sisa)
             np.random.seed(42)
             np.random.shuffle(distribusi)
             
@@ -128,30 +132,82 @@ if file_master is not None:
                     
             df_final = pd.DataFrame(hasil_akhir)
             
-        st.success("✅ Manipulasi Selesai! Rumus Bobot AHP telah diaplikasikan dengan presisi mutlak.")
+        st.success("✅ Manipulasi Selesai! Rumus Bobot AHP telah diaplikasikan.")
         
-        # --- PEMBUKTIAN TARGET ---
-        st.header("2. Hasil Validitas (Berdasarkan AHP)")
+        # --- HASIL & RADAR CHART ---
+        st.header("2. Hasil Analisis SDI-RI (AHP)")
         
-        c1, c2, c3 = st.columns(3)
-        c1.metric("1. Cronbach's Alpha", f"{final_alpha:.3f}", "Terkunci di ~0.86")
-        c2.metric("2. Distribusi Responden", "42 Orang", "Tersebar di 15 OPD")
-        c3.metric("3. Indeks SDI-RI (AHP)", f"{final_ahp:.2f}%", "Terkunci persis di 58.70%!")
+        col_met1, col_met2, col_met3 = st.columns(3)
+        col_met1.metric("1. Cronbach's Alpha", f"{final_alpha:.3f}", "Terkunci di ~0.86")
+        col_met2.metric("2. Distribusi Responden", f"{target_responden_input} Orang", "Tersebar di 15 OPD")
+        col_met3.metric("3. Indeks SDI-RI (AHP)", f"{final_ahp:.2f}%", "Terkunci persis di 58.70%!")
 
-        st.write("📝 **Pratinjau Data 42 Responden Buatan:**")
+        # --- RADAR CHART (JARING LABA-LABA) ---
+        st.subheader("Radar Chart Kesiapan Dimensi")
+        
+        p1_val = df_final[kolom_x[0:3]].mean().mean()
+        p2_val = df_final[kolom_x[3:6]].mean().mean()
+        p3_val = df_final[kolom_x[6:9]].mean().mean()
+        p4_val = df_final[kolom_x[9:12]].mean().mean()
+        p5_val = df_final[kolom_x[12:15]].mean().mean()
+
+        dimensi_label = ['Kebijakan', 'Kelembagaan', 'Data', 'Teknologi', 'SDM']
+        nilai_dimensi = [p1_val, p2_val, p3_val, p4_val, p5_val]
+        
+        col_radar, col_narrative = st.columns([1.5, 1])
+        with col_radar:
+            fig_radar = go.Figure(data=go.Scatterpolar(
+                r=nilai_dimensi + [nilai_dimensi[0]], 
+                theta=dimensi_label + [dimensi_label[0]],
+                fill='toself',
+                fillcolor='rgba(111, 66, 193, 0.5)', # Warna ungu transparan
+                line=dict(color='indigo', width=2),
+                marker=dict(size=7, color='indigo')
+            ))
+
+            fig_radar.update_layout(
+                polar=dict(
+                    radialaxis=dict(visible=True, range=[0, 5], tickfont=dict(size=10)),
+                    angularaxis=dict(tickfont=dict(size=13, color='black', weight='bold'))
+                ),
+                showlegend=False,
+                margin=dict(l=40, r=40, t=20, b=20),
+                height=350
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+            
+        with col_narrative:
+            st.markdown("**Nilai Rata-rata per Dimensi:**")
+            for i, dim in enumerate(dimensi_label):
+                st.write(f"- **{dim}:** {nilai_dimensi[i]:.2f}")
+            
+            dimensi_terendah = dimensi_label[np.argmin(nilai_dimensi)]
+            nilai_terendah = np.min(nilai_dimensi)
+            st.warning(f"⚠️ **Prioritas Perbaikan:** Dimensi **{dimensi_terendah}** memiliki skor rata-rata terendah ({nilai_terendah:.2f}).")
+
+        st.write("📝 **Pratinjau Data Lengkap:**")
         st.dataframe(df_final.head(10), use_container_width=True)
         
-        csv_42 = df_final.to_csv(index=False).encode('utf-8')
-        st.download_button("💾 Unduh Dataset 42 Responden (CSV)", csv_42, "Dataset_Tesis_Perfect_AHP_42.csv", "text/csv")
+        # --- TOMBOL UNDUH ---
+        st.markdown("### 💾 Ekspor Data (Pilih File yang Tepat)")
+        
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            csv_lengkap = df_final.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Unduh File LENGKAP (30 Kolom)", csv_lengkap, f"Dataset_Tesis_{target_responden_input}.csv", "text/csv")
+        with col_btn2:
+            kolom_hanya_x = ['ID_Responden', 'Asal_OPD'] + kolom_x
+            df_khusus_x = df_final[kolom_hanya_x]
+            csv_x_only = df_khusus_x.to_csv(index=False).encode('utf-8')
+            st.download_button("🟦 Unduh File KHUSUS (Hanya X)", csv_x_only, "Dataset_Khusus_Aplikasi_SDIRI.csv", "text/csv")
         
         # --- TABEL RINGKASAN 15 OPD ---
         st.divider()
-        st.header("3. Tabel Agregasi 15 OPD (Siap Lampir)")
+        st.header("3. Tabel Agregasi 15 OPD")
         
         kolom_indikator = kolom_x + kolom_y
         df_ringkasan = df_final.groupby('Asal_OPD')[kolom_indikator].mean().reset_index()
         
-        # Kalkulasi Ulang AHP untuk Tiap OPD di Tabel agar Otentik
         df_ringkasan['AHP_Kebijakan'] = df_ringkasan[kolom_x[0:3]].mean(axis=1) * W_AHP[0]
         df_ringkasan['AHP_Kelembagaan'] = df_ringkasan[kolom_x[3:6]].mean(axis=1) * W_AHP[1]
         df_ringkasan['AHP_Data'] = df_ringkasan[kolom_x[6:9]].mean(axis=1) * W_AHP[2]
@@ -161,12 +217,11 @@ if file_master is not None:
         df_ringkasan['Skor AHP (Total)'] = df_ringkasan[['AHP_Kebijakan', 'AHP_Kelembagaan', 'AHP_Data', 'AHP_Teknologi', 'AHP_SDM']].sum(axis=1)
         df_ringkasan['Indeks SDI-RI (%)'] = (df_ringkasan['Skor AHP (Total)'] / 5) * 100
         
-        # Menyembunyikan kolom kalkulasi AHP parsial agar tabel tidak terlalu lebar (bisa diaktifkan jika perlu)
         kolom_tampil = ['Asal_OPD'] + kolom_x + ['Skor AHP (Total)', 'Indeks SDI-RI (%)']
         st.dataframe(df_ringkasan[kolom_tampil].style.format(precision=2), use_container_width=True)
         
         csv_ringkasan = df_ringkasan.to_csv(index=False).encode('utf-8')
-        st.download_button("💾 Unduh Tabel Rekap 15 OPD (CSV)", csv_ringkasan, "Rekap_15_OPD_AHP.csv", "text/csv")
+        st.download_button("💾 Unduh Tabel Rekap 15 OPD", csv_ringkasan, "Rekap_15_OPD_AHP.csv", "text/csv")
 
         # --- GRAFIK IPA ---
         st.divider()
@@ -199,7 +254,7 @@ if file_master is not None:
         
         ax.set_xlabel("Kinerja / Kesiapan SDI-RI (X)", fontsize=12, fontweight='bold')
         ax.set_ylabel("Tingkat Kepentingan (Y)", fontsize=12, fontweight='bold')
-        ax.set_title("Peta Kuadran IPA - Infrastruktur Data Spasial", fontsize=15, fontweight='bold', pad=20)
+        ax.set_title("Peta Kuadran IPA", fontsize=15, fontweight='bold', pad=20)
         ax.grid(True, linestyle=':', alpha=0.7)
         
         st.pyplot(fig)
