@@ -129,12 +129,32 @@ if file_master is not None:
         st.write("📝 **Pratinjau Data 42 Responden Buatan:**")
         st.dataframe(df_final.head(10), use_container_width=True)
         
-        csv = df_final.to_csv(index=False).encode('utf-8')
-        st.download_button("💾 Unduh Dataset 42 Responden (CSV)", csv, "Dataset_Tesis_Perfect_42.csv", "text/csv")
+        csv_42 = df_final.to_csv(index=False).encode('utf-8')
+        st.download_button("💾 Unduh Dataset 42 Responden (CSV)", csv_42, "Dataset_Tesis_Perfect_42.csv", "text/csv")
         
+        # --- TABEL RINGKASAN 15 OPD ---
+        st.divider()
+        st.header("3. Tabel Agregasi 15 OPD (Untuk Lampiran Tesis)")
+        st.write("Tabel di bawah ini adalah hasil pengelompokan rata-rata jawaban dari 42 responden ke dalam 15 instansi asal mereka. Anda dapat melampirkan tabel ini sebagai bukti rekapitulasi nilai per OPD.")
+        
+        # Membuat agregasi rata-rata per OPD
+        kolom_indikator = kolom_x + kolom_y
+        df_ringkasan = df_final.groupby('Asal_OPD')[kolom_indikator].mean().reset_index()
+        
+        # Menambahkan kolom kalkulasi akhir untuk tiap instansi
+        df_ringkasan['Total Skor (X)'] = df_ringkasan[kolom_x].sum(axis=1)
+        df_ringkasan['Indeks SDI-RI OPD (%)'] = (df_ringkasan['Total Skor (X)'] / 75) * 100
+        
+        # Tampilkan dengan format 2 desimal agar rapi
+        st.dataframe(df_ringkasan.style.format(precision=2), use_container_width=True)
+        
+        # Tombol unduh khusus untuk tabel rekap 15 OPD
+        csv_ringkasan = df_ringkasan.to_csv(index=False).encode('utf-8')
+        st.download_button("💾 Unduh Tabel Rekap 15 OPD (CSV)", csv_ringkasan, "Rekapitulasi_15_OPD.csv", "text/csv")
+
         # --- GRAFIK IPA ---
         st.divider()
-        st.header("3. Visualisasi Kuadran IPA")
+        st.header("4. Visualisasi Kuadran IPA")
         st.write("Grafik ini memanfaatkan pola profil dari file BANGKEK untuk menjamin koordinatnya sama persis seperti yang sudah Anda analisis sebelumnya.")
         
         kinerja_x = df_final[kolom_x].mean().values
