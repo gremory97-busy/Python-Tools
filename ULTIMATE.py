@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Ultimate God Mode Engine", layout="wide")
 st.title("🚀 God Mode Engine: AHP SDI-RI 58.70% & Alpha 0.86")
-st.markdown("Mesin ini mengunci Indeks SDI-RI 58.70% (via AHP) dan Alpha 0.86. **Pembaruan:** Dilengkapi grafik *Radar Chart* (Jaring Laba-laba) untuk 5 Dimensi.")
+st.markdown("Mesin ini mengunci Indeks SDI-RI 58.70% (via AHP) dan Alpha 0.86. Dilengkapi grafik *Radar Chart* dan rincian **Skor Komposit tiap Aspek**.")
 
 # --- KONFIGURASI BOBOT AHP ---
 W_AHP = [0.19, 0.20, 0.21, 0.19, 0.21]
@@ -87,7 +87,7 @@ def generate_perfect_ahp_data(means_x, means_y, num_resp=45, target_ahp=58.700, 
 st.header("1. Konfigurasi Awal")
 col_input1, col_input2 = st.columns([1, 2])
 with col_input1:
-    target_responden_input = st.number_input("Target Jumlah Responden:", min_value=15, max_value=100, value=45, help="Sangat disarankan memakai kelipatan 15 (seperti 45) agar agregasi Rekap OPD tidak meleset nilainya.")
+    target_responden_input = st.number_input("Target Jumlah Responden:", min_value=15, max_value=100, value=45, help="Disarankan kelipatan 15 (seperti 45) agar bobot rata-rata OPD tidak timpang.")
 with col_input2:
     file_master = st.file_uploader("Unggah File BANGKEK.xlsx di sini:", type=["xlsx", "csv"])
 
@@ -110,7 +110,6 @@ if file_master is not None:
                 mean_x_asli, mean_y_asli, num_resp=target_responden_input
             )
             
-            # Distribusi responden ke instansi
             base_count = target_responden_input // jumlah_opd
             sisa = target_responden_input % jumlah_opd
             distribusi = [base_count + 1] * sisa + [base_count] * (jumlah_opd - sisa)
@@ -134,7 +133,7 @@ if file_master is not None:
             
         st.success("✅ Manipulasi Selesai! Rumus Bobot AHP telah diaplikasikan.")
         
-        # --- HASIL & RADAR CHART ---
+        # --- HASIL UTAMA ---
         st.header("2. Hasil Analisis SDI-RI (AHP)")
         
         col_met1, col_met2, col_met3 = st.columns(3)
@@ -142,15 +141,32 @@ if file_master is not None:
         col_met2.metric("2. Distribusi Responden", f"{target_responden_input} Orang", "Tersebar di 15 OPD")
         col_met3.metric("3. Indeks SDI-RI (AHP)", f"{final_ahp:.2f}%", "Terkunci persis di 58.70%!")
 
-        # --- RADAR CHART (JARING LABA-LABA) ---
-        st.subheader("Radar Chart Kesiapan Dimensi")
+        st.divider()
+        st.subheader("Skor Komposit per Dimensi (Skala 0 - 100)")
         
+        # Kalkulasi rata-rata mentah per pilar (skala 1-5)
         p1_val = df_final[kolom_x[0:3]].mean().mean()
         p2_val = df_final[kolom_x[3:6]].mean().mean()
         p3_val = df_final[kolom_x[6:9]].mean().mean()
         p4_val = df_final[kolom_x[9:12]].mean().mean()
         p5_val = df_final[kolom_x[12:15]].mean().mean()
 
+        # Konversi ke Skor Komposit (Skala 0-100)
+        idx_kebijakan = (p1_val / 5) * 100
+        idx_kelembagaan = (p2_val / 5) * 100
+        idx_data = (p3_val / 5) * 100
+        idx_teknologi = (p4_val / 5) * 100
+        idx_sdm = (p5_val / 5) * 100
+
+        col_d1, col_d2, col_d3, col_d4, col_d5 = st.columns(5)
+        col_d1.metric("Kebijakan", f"{idx_kebijakan:.2f}")
+        col_d2.metric("Kelembagaan", f"{idx_kelembagaan:.2f}")
+        col_d3.metric("Data", f"{idx_data:.2f}")
+        col_d4.metric("Teknologi", f"{idx_teknologi:.2f}")
+        col_d5.metric("SDM", f"{idx_sdm:.2f}")
+
+        # --- RADAR CHART (JARING LABA-LABA) ---
+        st.markdown("<br>", unsafe_allow_html=True)
         dimensi_label = ['Kebijakan', 'Kelembagaan', 'Data', 'Teknologi', 'SDM']
         nilai_dimensi = [p1_val, p2_val, p3_val, p4_val, p5_val]
         
@@ -177,9 +193,9 @@ if file_master is not None:
             st.plotly_chart(fig_radar, use_container_width=True)
             
         with col_narrative:
-            st.markdown("**Nilai Rata-rata per Dimensi:**")
+            st.markdown("**Nilai Mentah per Dimensi (Skala 1-5):**")
             for i, dim in enumerate(dimensi_label):
-                st.write(f"- **{dim}:** {nilai_dimensi[i]:.2f}")
+                st.write(f"- **{dim}:** {nilai_dimensi[i]:.2f} / 5.00")
             
             dimensi_terendah = dimensi_label[np.argmin(nilai_dimensi)]
             nilai_terendah = np.min(nilai_dimensi)
